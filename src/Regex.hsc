@@ -55,7 +55,7 @@ newtype PCREOption = PCREOption { unPCREOption :: CInt }
 combineOptions :: [PCREOption] -> PCREOption
 combineOptions = PCREOption . foldr ((.|.) . unPCREOption) 0
 
---pcre *pcre_compile(const char *pattern,
+--pcre *pcre_compile(const char *regex,
                    --int options,
                    --const char **errptr,
                    --int *erroffset,
@@ -112,10 +112,10 @@ data Regex = Regex !(ForeignPtr PCRE)
 
 compile :: ByteString -> [PCREOption] -> Either String Regex
 compile str flags = Unsafe.unsafePerformIO $
-  C.useAsCString str $ \pattern -> do
+  C.useAsCString str $ \regex -> do
     alloca $ \errptr -> do
       alloca $ \erroffset -> do
-          pcre_ptr <- c_pcre_compile pattern (combineOptions flags) errptr erroffset nullPtr
+          pcre_ptr <- c_pcre_compile regex (combineOptions flags) errptr erroffset nullPtr
           if pcre_ptr == nullPtr
               then do
                   err <- peekCString =<< peek errptr
@@ -149,14 +149,14 @@ data PCREExtra
 newtype PCREExecOption = PCREExecOption { unPCREExecOption :: CInt }
     deriving (Eq,Show)
 
-#{enum PCREInfo, PCREInfo
+#{enum PCREExecOption, PCREExecOption
   , anchored       = PCRE_ANCHORED
   }
 
 combineExecOptions :: [PCREExecOption] -> PCREExecOption
 combineExecOptions = PCREExecOption . foldr ((.|.) . unPCREExecOption) 0
 
--- We are intereste in the int *ovector that are the matching substrings found by the pattern matcher.
+-- We are intereste in the int *ovector that are the matching substrings found by the regex matcher.
 --
 -- The size is determine by analysing the input regular expression to determine the number of captured patterns it contains.
 --
@@ -177,7 +177,7 @@ foreign import ccall "pcre.h pcre_fullinfo"
     c_pcre_fullinfo :: Ptr PCRE
                     -> Ptr PCREExtra
                     -> PCREInfo            -- ^ Information we are interested in.
-                    -> Ptr a               -- ^ pointer to a location to store the information about the pattern ( we are not interested in it)
+                    -> Ptr a               -- ^ pointer to a location to store the information about the regex
                     -> IO CInt
 
 -- | Returns the number of capturing subpatterns
@@ -188,7 +188,8 @@ capturedCount regex_ptr =
          c_pcre_fullinfo regex_ptr nullPtr info_capturecount n_ptr
          return . fromIntegral =<< peek (n_ptr :: Ptr CInt)
 
---  withForeignPtr: this holds on to the Haskell data associated with the PCRE value while the call is being made, preventing it from being collected for at least the time it is used by this call
+-- *withForeignPtr* this holds on to the Haskell data associated with the PCRE value while the call
+-- is being made, preventing it from being collected for at least the time it is used by this call
 
 match :: Regex -> ByteString -> [PCREExecOption] -> Maybe [ByteString]
 match (Regex pcre_fp _) subject os = Unsafe.unsafePerformIO $ do

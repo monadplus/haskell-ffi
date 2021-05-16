@@ -1,12 +1,34 @@
-# Haskell's FFI using Cabal
+# Wrapping a C library
 
-Simple example of Haskell's FFI using [PCRE](https://www.pcre.org/) library.
-
-## Run the example
+## Cabal
 
 ```bash
-$ nix-build --attr regex
-$ ./result/bin/regex
+$ nix-shell
+$ cabal build
 ```
 
-All credit to: <http://book.realworldhaskell.org/read/interfacing-with-c-the-ffi.html>
+> nix-shell is only required on NixOS.
+
+## Nix
+
+```bash
+$ nix-build -A haskell-ffi
+```
+
+## Troubleshooting
+
+If cabal fails due to a `missing pcre.h`, you need to check if the library is installed in your distribution
+and install it
+
+``` bash
+pkg-config --list-all | grep 'libpcre'
+
+# Arch linux
+pacman -Syu pcre
+```
+
+## Credits
+
+- http://book.realworldhaskell.org/read/interfacing-with-c-the-ffi.html
+- https://github.com/haskell-hvr/regex-pcre
+
